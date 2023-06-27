@@ -1,5 +1,6 @@
 package run.ikaros.plugin.baidupan;
 
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpEntity;
@@ -9,11 +10,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
+import reactor.core.publisher.Mono;
 import run.ikaros.api.core.setting.ConfigMap;
 import run.ikaros.api.custom.ReactiveCustomClient;
+import run.ikaros.api.exception.NotFoundException;
 import run.ikaros.api.infra.properties.IkarosProperties;
 import run.ikaros.api.infra.utils.FileUtils;
 import run.ikaros.api.plugin.event.PluginConfigMapUpdateEvent;
@@ -40,6 +44,7 @@ public class BaiDuPanClient {
     private String secretKey;
     private String refreshToken;
     private String accessToken;
+    private boolean ready = false;
 
     public BaiDuPanClient(IkarosProperties ikarosProperties,
                           ReactiveCustomClient reactiveCustomClient) {
@@ -47,22 +52,39 @@ public class BaiDuPanClient {
         this.reactiveCustomClient = reactiveCustomClient;
     }
 
+    @EventListener(ApplicationReadyEvent.class)
+    public void onApplicationReadyEvent() {
+        reactiveCustomClient.findOne(ConfigMap.class, BaiDuPanConst.NAME)
+            .onErrorResume(NotFoundException.class, e -> Mono.empty())
+            .subscribe(this::init);
+    }
+
+
     @EventListener(PluginConfigMapUpdateEvent.class)
-    public void init(PluginConfigMapUpdateEvent event) {
+    public void onPluginConfigMapUpdateEvent(PluginConfigMapUpdateEvent event) {
         ConfigMap configMap = event.getConfigMap();
         if (!BaiDuPanConst.NAME.equals(configMap.getName())) {
             return;
         }
+        init(configMap);
+    }
 
+    public void init(ConfigMap configMap) {
         Map<String, Object> dataMap = configMap.getData();
         appKey = String.valueOf(dataMap.get("appKey"));
         secretKey = String.valueOf(dataMap.get("secretKey"));
         refreshToken = String.valueOf(dataMap.get("refreshToken"));
         accessToken = String.valueOf(dataMap.get("accessToken"));
 
-        log.debug("init appKey: [{}].", appKey);
-        log.debug("init secretKey: [{}].", secretKey);
-        log.debug("init accessToken: [{}].", accessToken);
+        if (StringUtils.hasText(accessToken) && StringUtils.hasText(appKey)
+            && StringUtils.hasText(secretKey) && StringUtils.hasText(refreshToken)) {
+            ready = true;
+            log.debug("bai du pan client has ready");
+        }
+    }
+
+    public boolean ready() {
+        return ready;
     }
 
     public void refreshAccessToken() {
@@ -99,6 +121,7 @@ public class BaiDuPanClient {
 
     public FileCreateResult uploadFile(Path path) {
         Assert.notNull(path, "'path' must not null.");
+        Assert.hasText(accessToken, "'accessToken' must has text.");
 
         File file = path.toFile();
         if (file.isDirectory()) {
@@ -107,9 +130,9 @@ public class BaiDuPanClient {
 
         // 文件分片 按4MB进行分片
         Path chunkCacheDirPath = ikarosProperties.getWorkDir()
-            .resolve("cache").resolve("plugin")
+            .resolve("caches").resolve("plugin")
             .resolve(BaiDuPanConst.NAME)
-            .resolve(FileUtils.formatDirName(file.getName()));
+            .resolve(UUID.randomUUID().toString().replace("-", ""));
         if (!chunkCacheDirPath.toFile().exists()) {
             chunkCacheDirPath.toFile().mkdirs();
         }
@@ -117,7 +140,7 @@ public class BaiDuPanClient {
         // 计算分片文件的md5值
         List<String> blockList = new ArrayList<>();
         File[] files = chunkCacheDirPath.toFile().listFiles();
-        if(files == null) {
+        if (files == null) {
             throw new BaiDuPanException("file split fail, chunk files is null");
         }
         List<File> sortedFiles = Arrays.stream(files)
@@ -132,13 +155,13 @@ public class BaiDuPanClient {
                     FileUtils.calculateFileHash(FileUtils.convertToDataBufferFlux(listFile)));
                 calculateFileHashIndex++;
                 log.info("current calculate file chunk: {}/{}", calculateFileHashIndex, length);
-            } catch (NoSuchAlgorithmException | IOException e) {
+            } catch (IOException e) {
                 throw new BaiDuPanException("calculate chunk file hash fail.", e);
             }
         }
 
         // 远端路径
-        String remotePath = "/apps/ikaros/" +UUID.randomUUID().toString().replace("-", "")
+        String remotePath = "/apps/ikaros/" + UUID.randomUUID().toString().replace("-", "")
             + "-" + file.getName();
 
         // 预上传
@@ -181,7 +204,7 @@ public class BaiDuPanClient {
         try {
             FileUtils.deleteDirByRecursion(chunkCacheDirPath.toFile().getAbsolutePath());
         } catch (IOException e) {
-            throw new BaiDuPanException("delete chunk file fail.",e);
+            throw new BaiDuPanException("delete chunk file fail.", e);
         }
 
         // 创建文件
@@ -217,7 +240,8 @@ public class BaiDuPanClient {
         return fileCreateResult;
     }
 
-    private void uploadChunkFile(File file, String path, String uploadId, int index) throws IOException {
+    private void uploadChunkFile(File file, String path, String uploadId, int index)
+        throws IOException {
         UriComponents uriComponents =
             UriComponentsBuilder.fromHttpUrl("https://d.pcs.baidu.com/rest/2.0/pcs/superfile2")
                 .queryParam("method", "upload")

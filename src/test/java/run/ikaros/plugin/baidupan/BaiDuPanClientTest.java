@@ -1,5 +1,6 @@
 package run.ikaros.plugin.baidupan;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import run.ikaros.api.core.setting.ConfigMap;
 import run.ikaros.api.infra.properties.IkarosProperties;
@@ -13,6 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BaiDuPanClientTest {
 
     @Test
+    @Disabled
     void uploadFile() {
         IkarosProperties ikarosProperties = new IkarosProperties();
         ikarosProperties.setWorkDir(new File("C:\\Develop\\test\\ikaros-plugin").toPath());
@@ -25,9 +27,7 @@ class BaiDuPanClientTest {
         configMap.putDataItem("refreshToken", System.getenv("TEST_REFRESH_TOKEN"));
         configMap.putDataItem("accessToken", System.getenv("TEST_ACCESS_TOKEN"));
 
-        PluginConfigMapUpdateEvent updateEvent =
-            new PluginConfigMapUpdateEvent(this, BaiDuPanConst.NAME, configMap);
-        baiDuPanClient.init(updateEvent);
+        baiDuPanClient.init(configMap);
 
         File file = new File(
             "C:\\Develop\\test\\ikaros-plugin\\アイドル - YOASOBI.flac");

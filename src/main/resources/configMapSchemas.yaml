@@ -17,13 +17,13 @@
   value: '$accessToken'
   label: 'AccessToken'
   help: '您的百度网盘开放平台获取的AccessToken'
-  validation: 'required|length:5,40'
+  validation: 'required'
 
 - $formkit: 'text'
   name: 'refreshToken'
   value: '$refreshToken'
   label: 'RefreshToken'
   help: '您的百度网盘开放平台获取的RefreshToken'
-  validation: 'required|length:5,40'
+  validation: 'required'
 
 
