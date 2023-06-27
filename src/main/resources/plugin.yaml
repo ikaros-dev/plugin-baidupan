@@ -1,6 +1,6 @@
 # A unique name, must eq var console/vite.config.js#pluginEntryName,
 # and can not contain specific symbol such as - .
-name: PluginStarter
+name: PluginBaiDuPan
 # plugin entry class that extends BasePlugin
 clazz: run.ikaros.plugin.starter.StarterPlugin
 # plugin 'version' is a valid semantic version string (see semver.org).
