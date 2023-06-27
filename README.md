@@ -1,2 +1,2 @@
-# plugin-starter
-ikaros plugin starter template
+# plugin-baidupan
+a bai du pan plugin for ikaros.
