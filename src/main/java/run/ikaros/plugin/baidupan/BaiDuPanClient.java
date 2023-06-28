@@ -3,14 +3,13 @@ package run.ikaros.plugin.baidupan;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.RequestCallback;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -21,16 +20,16 @@ import run.ikaros.api.exception.NotFoundException;
 import run.ikaros.api.infra.properties.IkarosProperties;
 import run.ikaros.api.infra.utils.FileUtils;
 import run.ikaros.api.plugin.event.PluginConfigMapUpdateEvent;
-import run.ikaros.plugin.baidupan.result.FileCreateResult;
-import run.ikaros.plugin.baidupan.result.FilePreCreateResult;
-import run.ikaros.plugin.baidupan.result.RefreshTokenResult;
+import run.ikaros.plugin.baidupan.result.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class BaiDuPanClient {
     private final IkarosProperties ikarosProperties;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private static final RestTemplate restTemplate = new RestTemplate();
     private final ReactiveCustomClient reactiveCustomClient;
     private String appKey;
     private String secretKey;
@@ -264,4 +263,84 @@ public class BaiDuPanClient {
     }
 
 
+    public void download(List<String> fsIdList, Path targetDirPath) {
+        Assert.notNull(targetDirPath, "'targetDirPath' must not null.");
+        Assert.notNull(fsIdList, "'fsIdList' must not null.");
+
+        List<Long> list = fsIdList.stream().map(Long::valueOf).toList();
+        log.debug("fsids: {}", list);
+
+        // 获取文件信息和下载链接
+        UriComponents uriComponents =
+            UriComponentsBuilder.fromHttpUrl("http://pan.baidu.com/rest/2.0/xpan/multimedia")
+                .queryParam("method", "filemetas")
+                .queryParam("access_token", accessToken)
+                .queryParam("dlink", 1)
+                .queryParam("fsids", Collections.singletonList(list))
+                .build();
+
+        GetFileInfoResult fileInfoResult =
+            restTemplate.getForEntity(uriComponents.toUri(), GetFileInfoResult.class).getBody();
+
+        if (fileInfoResult == null || fileInfoResult.getErrno() != 0) {
+            if (fileInfoResult != null && 111 == fileInfoResult.getErrno()) {
+                refreshAccessToken();
+            }
+            throw new BaiDuPanException(
+                "get remote file info fail, errno: " +
+                    (fileInfoResult == null ? null : fileInfoResult.getErrno()));
+        }
+
+        // 下载文件
+        int total = fileInfoResult.getList().size();
+        int index = 0;
+        for (FileInfo fileInfo : fileInfoResult.getList()) {
+            try {
+                downloadFileByInfo(targetDirPath, fileInfo);
+            } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
+            index++;
+            log.debug("current download file: {}/{}", index, total);
+        }
+
+    }
+
+    private void downloadFileByInfo(Path targetDirPath, FileInfo fileInfo)
+        throws URISyntaxException {
+        String filename = fileInfo.getFilename();
+        filename = filename.substring(filename.lastIndexOf("-") + 1);
+        Path filePath = targetDirPath.resolve(filename);
+        String downloadLink = fileInfo.getDownloadLink();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.USER_AGENT, "pan.baidu.com");
+        headers.add(HttpHeaders.HOST, "d.pcs.baidu.com");
+        HttpEntity<Object> httpEntity = new HttpEntity<>(null, headers);
+
+        ResponseEntity<byte[]> responseEntity =
+            restTemplate.exchange(new URI(downloadLink + "&access_token=" + accessToken),
+                HttpMethod.GET,
+                httpEntity, byte[].class);
+        if (responseEntity.getStatusCode() == HttpStatusCode.valueOf(302)) {
+            URI location = responseEntity.getHeaders().getLocation();
+
+            RequestCallback requestCallback = request -> {
+                request.getHeaders()
+                    .setAccept(Arrays.asList(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
+                request.getHeaders().add(HttpHeaders.USER_AGENT, "pan.baidu.com");
+                request.getHeaders().add(HttpHeaders.HOST, "d.pcs.baidu.com");
+            };
+
+            restTemplate.execute(location,
+                HttpMethod.GET, requestCallback, clientHttpResponse -> {
+                    Files.copy(clientHttpResponse.getBody(), filePath);
+                    return null;
+                });
+        } else {
+            throw new BaiDuPanException("no 302 when download file.");
+        }
+
+
+    }
 }

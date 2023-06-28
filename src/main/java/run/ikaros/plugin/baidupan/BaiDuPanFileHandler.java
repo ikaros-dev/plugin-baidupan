@@ -51,8 +51,8 @@ public class BaiDuPanFileHandler implements RemoteFileHandler {
     }
 
     @Override
-    public void pull(Path path, List<String> list) {
-
+    public void pull(Path targetDirPath, List<String> fsIdList) {
+        client.download(fsIdList, targetDirPath);
     }
 
     @Override
