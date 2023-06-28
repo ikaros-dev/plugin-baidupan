@@ -301,7 +301,8 @@ public class BaiDuPanClient {
                 throw new RuntimeException(e);
             }
             index++;
-            log.debug("current download file: {}/{}", index, total);
+            log.debug("current download file: {}/{} for pull file [{}].", index, total,
+                fileInfo.getFilename());
         }
 
     }
