@@ -344,4 +344,30 @@ public class BaiDuPanClient {
 
 
     }
+
+    public void delete(String path) {
+        delete(path, false);
+    }
+
+    public void delete(String path, boolean isSync) {
+        Assert.notNull(path, "'path' must not null.");
+
+        UriComponents uriComponents =
+            UriComponentsBuilder.fromHttpUrl("http://pan.baidu.com/rest/2.0/xpan/file")
+                .queryParam("method", "filemanager")
+                .queryParam("access_token", accessToken)
+                .queryParam("opera", "delete").build();
+
+
+        MultiValueMap<String, Object> bodyMap = new LinkedMultiValueMap<>();
+        bodyMap.put("async", Collections.singletonList(isSync ? 0 : 2));
+        bodyMap.put("filelist", Collections.singletonList(List.of(path)));
+
+        Map map = restTemplate.postForEntity(uriComponents.toUri(), bodyMap, Map.class).getBody();
+        if(map != null && map.containsKey("errno") && !"0".equals(map.get("errno"))) {
+            log.warn("delete remote file fail, result:{} ", map);
+        } else {
+            log.debug("delete remote file result: {}", map);
+        }
+    }
 }

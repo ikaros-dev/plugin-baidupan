@@ -56,8 +56,8 @@ public class BaiDuPanFileHandler implements RemoteFileHandler {
     }
 
     @Override
-    public void delete(Path path) {
-
+    public void delete(String path) {
+        client.delete(path, true);
     }
 
     @Override
