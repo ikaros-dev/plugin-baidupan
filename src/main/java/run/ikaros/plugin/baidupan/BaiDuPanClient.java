@@ -31,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -263,12 +264,12 @@ public class BaiDuPanClient {
     }
 
 
-    public void download(List<String> fsIdList, Path targetDirPath) {
+    public void download(String fsId, Path targetDirPath) {
         Assert.notNull(targetDirPath, "'targetDirPath' must not null.");
-        Assert.notNull(fsIdList, "'fsIdList' must not null.");
+        Assert.notNull(fsId, "'fsId' must not null.");
 
-        List<Long> list = fsIdList.stream().map(Long::valueOf).toList();
-        log.debug("fsids: {}", list);
+        List<Long> list = Stream.of(fsId).map(Long::valueOf).toList();
+        log.debug("fsids: {}", fsId);
 
         // 获取文件信息和下载链接
         UriComponents uriComponents =

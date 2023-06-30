@@ -2,6 +2,7 @@ package run.ikaros.plugin.baidupan;
 
 import org.pf4j.Extension;
 import org.springframework.stereotype.Component;
+import org.springframework.util.Assert;
 import run.ikaros.api.core.file.RemoteFileChunk;
 import run.ikaros.api.core.file.RemoteFileHandler;
 import run.ikaros.plugin.baidupan.result.FileCreateResult;
@@ -27,32 +28,27 @@ public class BaiDuPanFileHandler implements RemoteFileHandler {
     }
 
     @Override
-    public List<RemoteFileChunk> push(Path path) {
-        File[] files = path.toFile().listFiles();
-        if (files == null) {
-            throw new RuntimeException("has not files for path: " + path);
-        }
-        List<RemoteFileChunk> remoteFileChunks = new ArrayList<>();
-        for (File file : files) {
-            FileCreateResult fileCreateResult = client.uploadFile(file.toPath());
-            RemoteFileChunk remoteFileChunk = new RemoteFileChunk();
-            remoteFileChunk.setFileId(String.valueOf(fileCreateResult.getFsId()));
-            remoteFileChunk.setFileName(String.valueOf(fileCreateResult.getFilename()));
-            remoteFileChunk.setCategory(fileCreateResult.getCategory());
-            remoteFileChunk.setPath(fileCreateResult.getPath());
-            remoteFileChunk.setMd5(fileCreateResult.getMd5());
-            remoteFileChunk.setIsDir(fileCreateResult.getIsDir() == 1);
-            remoteFileChunk.setSize(fileCreateResult.getSize());
-            log.info("upload chunk file to remote[{}] for name: [{}].",
-                BaiDuPanConst.REMOTE, file.getName());
-            remoteFileChunks.add(remoteFileChunk);
-        }
-        return remoteFileChunks;
+    public RemoteFileChunk push(Path path) {
+        Assert.notNull(path, "'path' must not null.");
+        File file = path.toFile();
+        Assert.notNull(file, "'path file' must not null.");
+        FileCreateResult fileCreateResult = client.uploadFile(file.toPath());
+        RemoteFileChunk remoteFileChunk = new RemoteFileChunk();
+        remoteFileChunk.setFileId(String.valueOf(fileCreateResult.getFsId()));
+        remoteFileChunk.setFileName(String.valueOf(fileCreateResult.getFilename()));
+        remoteFileChunk.setCategory(fileCreateResult.getCategory());
+        remoteFileChunk.setPath(fileCreateResult.getPath());
+        remoteFileChunk.setMd5(fileCreateResult.getMd5());
+        remoteFileChunk.setIsDir(fileCreateResult.getIsDir() == 1);
+        remoteFileChunk.setSize(fileCreateResult.getSize());
+        log.info("upload chunk file to remote[{}] for name: [{}].",
+            BaiDuPanConst.REMOTE, file.getName());
+        return remoteFileChunk;
     }
 
     @Override
-    public void pull(Path targetDirPath, List<String> fsIdList) {
-        client.download(fsIdList, targetDirPath);
+    public void pull(Path targetDirPath, String fsId) {
+        client.download(fsId, targetDirPath);
     }
 
     @Override

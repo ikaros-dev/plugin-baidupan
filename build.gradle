@@ -18,14 +18,15 @@ ext {
 }
 
 
-
 dependencies {
     compileOnly "org.springframework:spring-context:$springContext"
     compileOnly "org.pf4j:pf4j:$pf4j"
     compileOnly "io.projectreactor:reactor-core:3.5.1"
     compileOnly "org.springframework:spring-webflux:6.0.3"
     compileOnly "org.springdoc:springdoc-openapi-starter-webflux-api:2.0.2"
+
     compileOnly files(libFile)
+    testImplementation files(libFile)
 
     testImplementation "org.springframework:spring-context:$springContext"
     testImplementation "org.pf4j:pf4j:$pf4j"
@@ -34,7 +35,7 @@ dependencies {
     testImplementation "org.springdoc:springdoc-openapi-starter-webflux-api:2.0.2"
     testImplementation 'org.slf4j:slf4j-api:2.0.7'
     testImplementation 'org.slf4j:slf4j-simple:2.0.7'
-    testImplementation files(libFile)
+
 
     // lombok
     compileOnly "org.projectlombok:lombok:$lombok"
