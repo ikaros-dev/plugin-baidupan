@@ -149,11 +149,11 @@ public class BaiDuPanClient {
         }
         // 根据VIP等级进行分片 普通用户-4MB 普通会员-16MB 超级会员-32MB
         // @see https://pan.baidu.com/union/doc/nksg0s9vi
-        // 这里分片的规则是： 普通用户-4MB 普通会员-10MB 超级会员-20MB
+        // 这里分片的规则是： 普通用户-4MB 普通会员-10MB 超级会员-30MB
         Integer vipType = me().getVipType();
         int chunkSize = 1024;
         switch (vipType) {
-            case 2 -> chunkSize = chunkSize * 20;
+            case 2 -> chunkSize = chunkSize * 30;
             case 1 -> chunkSize = chunkSize * 10;
             default -> chunkSize = chunkSize * 4;
         }
@@ -382,10 +382,6 @@ public class BaiDuPanClient {
         bodyMap.put("filelist", Collections.singletonList(List.of(path)));
 
         Map map = restTemplate.postForEntity(uriComponents.toUri(), bodyMap, Map.class).getBody();
-        if (map != null && map.containsKey("errno") && !"0".equals(map.get("errno"))) {
-            log.warn("delete remote file fail, result:{} ", map);
-        } else {
-            log.debug("delete remote file result: {}", map);
-        }
+        log.debug("delete remote file result: {}", map);
     }
 }

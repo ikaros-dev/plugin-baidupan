@@ -58,7 +58,7 @@ class BaiDuPanClientTest {
         configMap.putDataItem("refreshToken", System.getenv("TEST_REFRESH_TOKEN"));
         baiDuPanClient.init(configMap);
 
-        baiDuPanClient.download("190341088047736",
+        baiDuPanClient.download("1045966035499620",
             Path.of(new File("C:\\Develop\\test\\ikaros-plugin\\encrypt").toURI()));
     }
 
