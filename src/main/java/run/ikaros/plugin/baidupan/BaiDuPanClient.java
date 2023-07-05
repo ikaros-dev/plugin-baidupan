@@ -70,7 +70,7 @@ public class BaiDuPanClient {
     }
 
     public void init(ConfigMap configMap) {
-        Map<String, Object> dataMap = configMap.getData();
+        Map<String, String> dataMap = configMap.getData();
         appKey = String.valueOf(dataMap.get("appKey"));
         secretKey = String.valueOf(dataMap.get("secretKey"));
         refreshToken = String.valueOf(dataMap.get("refreshToken"));
