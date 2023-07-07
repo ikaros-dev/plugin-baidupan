@@ -168,18 +168,20 @@ public class BaiDuPanClient {
             .sorted((o1, o2) -> (int) (Long.parseLong(o1.getName())
                 - Long.parseLong(o2.getName()))).toList();
 
-        final int length = files.length;
+        final int size = files.length;
         int calculateFileHashIndex = 0;
+        log.info("start calculate chunk file md5 value, size: {}", size);
         for (File listFile : sortedFiles) {
             try {
                 blockList.add(
                     FileUtils.calculateFileHash(FileUtils.convertToDataBufferFlux(listFile)));
                 calculateFileHashIndex++;
-                log.info("current calculate file chunk: {}/{}", calculateFileHashIndex, length);
+                log.info("current calculate file chunk: {}/{}", calculateFileHashIndex, size);
             } catch (IOException e) {
                 throw new BaiDuPanException("calculate chunk file hash fail.", e);
             }
         }
+        log.info("end calculate chunk file md5 value, size: {}", size);
 
         // 远端路径
         String remotePath = "/apps/ikaros/" + UUID.randomUUID().toString().replace("-", "")
@@ -213,14 +215,16 @@ public class BaiDuPanClient {
 
 
         // 分片上传
+        log.info("start upload chunk files, size: {}", size);
         for (int i = 0; i < sortedFiles.size(); i++) {
             try {
                 uploadChunkFile(sortedFiles.get(i), remotePath, uploadId, i);
-                log.info("current upload chunk file: {}/{}", i, length);
+                log.info("current upload chunk file: {}/{}", i + 1, size);
             } catch (IOException e) {
                 throw new BaiDuPanException("upload chunk file fail.", e);
             }
         }
+        log.info("end upload chunk files, size: {}", size);
 
         try {
             FileUtils.deleteDirByRecursion(chunkCacheDirPath.toFile().getAbsolutePath());
@@ -290,7 +294,7 @@ public class BaiDuPanClient {
         Assert.notNull(fsId, "'fsId' must not null.");
 
         List<Long> list = Stream.of(fsId).map(Long::valueOf).toList();
-        log.debug("fsids: {}", fsId);
+        log.debug("downloading remote file for fsids: {}", fsId);
 
         // 获取文件信息和下载链接
         UriComponents uriComponents =
