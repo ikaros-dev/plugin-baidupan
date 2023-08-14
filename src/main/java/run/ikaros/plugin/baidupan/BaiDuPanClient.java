@@ -16,7 +16,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 import run.ikaros.api.core.setting.ConfigMap;
 import run.ikaros.api.custom.ReactiveCustomClient;
-import run.ikaros.api.exception.NotFoundException;
+import run.ikaros.api.infra.exception.NotFoundException;
 import run.ikaros.api.infra.properties.IkarosProperties;
 import run.ikaros.api.infra.utils.FileUtils;
 import run.ikaros.api.plugin.event.PluginConfigMapUpdateEvent;
@@ -149,12 +149,12 @@ public class BaiDuPanClient {
         }
         // 根据VIP等级进行分片 普通用户-4MB 普通会员-16MB 超级会员-32MB
         // @see https://pan.baidu.com/union/doc/nksg0s9vi
-        // 这里分片的规则是： 普通用户-4MB 普通会员-10MB 超级会员-30MB
+        // 这里分片的规则是： 普通用户-4MB 普通会员-16MB 超级会员-32MB
         Integer vipType = me().getVipType();
         int chunkSize = 1024;
         switch (vipType) {
-            case 2 -> chunkSize = chunkSize * 30;
-            case 1 -> chunkSize = chunkSize * 10;
+            case 2 -> chunkSize = chunkSize * 32;
+            case 1 -> chunkSize = chunkSize * 16;
             default -> chunkSize = chunkSize * 4;
         }
         FileUtils.split(path, chunkCacheDirPath, chunkSize);
@@ -172,14 +172,10 @@ public class BaiDuPanClient {
         int calculateFileHashIndex = 0;
         log.info("start calculate chunk file md5 value, size: {}", size);
         for (File listFile : sortedFiles) {
-            try {
-                blockList.add(
-                    FileUtils.calculateFileHash(FileUtils.convertToDataBufferFlux(listFile)));
-                calculateFileHashIndex++;
-                log.info("current calculate file chunk: {}/{}", calculateFileHashIndex, size);
-            } catch (IOException e) {
-                throw new BaiDuPanException("calculate chunk file hash fail.", e);
-            }
+            blockList.add(
+                FileUtils.calculateFileHash(FileUtils.convertToDataBufferFlux(listFile)));
+            calculateFileHashIndex++;
+            log.info("current calculate file chunk: {}/{}", calculateFileHashIndex, size);
         }
         log.info("end calculate chunk file md5 value, size: {}", size);
 
